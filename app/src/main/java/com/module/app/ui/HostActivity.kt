@@ -6,6 +6,7 @@ import android.os.*
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
+import android.webkit.JavascriptInterface
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -142,11 +143,12 @@ class HostActivity : ComponentActivity() {
                         }
                     }.addJavascriptInterface("Android") {
                         object : WebInterface {
+                            @JavascriptInterface
                             override fun getDevicesInfo(): String {
                                 Log.e("1234","getDevicesInfo")
                                 return viewModel.getDevicesInfo()
                             }
-
+                            @JavascriptInterface
                             override fun savePic(base64: String) {
                                 Log.e("1234","savePic")
                                 if (base64.isEmpty()) return
@@ -155,9 +157,9 @@ class HostActivity : ComponentActivity() {
                                     launcher.launch()
                                 }
                             }
-
+                            @JavascriptInterface
                             override fun callapp(url: String) {
-                                Log.e("1234","callapp")
+                                Log.e("1234","callapp ${url}")
                                 scope.launch {
                                     tryJumpToUrl(url)
                                 }
