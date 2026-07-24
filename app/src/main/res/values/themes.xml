@@ -1,0 +1,10 @@
+<resources>
+
+    <style name="Theme.Application"  parent="android:Theme.Black.NoTitleBar"/>
+
+    <style name="Theme.Launcher" parent="Theme.Application">
+        <item name="android:windowBackground">@drawable/bg_logo</item>
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowFullscreen">true</item>
+    </style>
+</resources>
