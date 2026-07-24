@@ -137,6 +137,7 @@ class HostActivity : ComponentActivity() {
                     }.setOnLoadSuccess {
                         isLoadSuccess = true
                         if (viewModel.isFirstLaunchApp || viewModel.getGPS == 1) {
+                            viewModel.isFirstLaunchApp = false
                             controller.show()
                         }
                     }.addJavascriptInterface("Android") {
