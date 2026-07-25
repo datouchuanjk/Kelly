@@ -4,7 +4,9 @@ import android.content.Context
 import android.os.Build
 import android.provider.Settings
 import org.json.JSONObject
+import java.io.BufferedReader
 import java.io.File
+import java.io.InputStreamReader
 import java.util.Locale
 import java.util.TimeZone
 
@@ -22,13 +24,11 @@ object DeviceInfoUtils {
         longitude: Double = 0.0,
         latitude: Double = 0.0
     ): JSONObject {
-
-
         return JSONObject().apply {
             put("googleAdId", googleAdId ?: "")
             put("oldGoogleAdId", oldGoogleAdId ?: "")
-            put("androidId", androidId)
-            put("oldAndroidId", oldAndroidId)
+            put("androidId", androidId ?: "")
+            put("oldAndroidId", oldAndroidId ?: "")
             put("longitude", longitude)
             put("latitude", latitude)
             // 组装硬件及环境风险信息
@@ -67,50 +67,132 @@ object DeviceInfoUtils {
             put("isEmulator", isEmulator())                   // 是否为模拟器
             put("isRooted", isRooted())                       // 是否 Root
             put("isAdbEnabled", isAdbEnabled(context))        // 是否开启了 ADB 调试
+            put("abis", Build.SUPPORTED_ABIS.joinToString(","))
+            put("cpuRead", getCpuInfo())
+
+            // 模拟器驱动/节点存在性检测
+            put("qemud_file", File("/dev/socket/qemud").exists().toString())
+            put("qemu_pipe_file", File("/dev/qemu_pipe").exists().toString())
+            put("qemu_trace_file", File("/dev/qemu_trace").exists().toString())
+            put("libc_malloc_debug_qemu_file", File("/system/lib/libc_malloc_debug_qemu.so").exists().toString())
+            put("qemu_trace_file_sys", File("/sys/qemu_trace").exists().toString())
+            put("qemu-props_file", File("/system/bin/qemu-props").exists().toString())
         }
     }
 
     /**
-     * 综合检测是否为模拟器 (针对 Android SDK 模拟器、夜神、雷电、逍遥、网易 MuMu 等)
+     * 综合检测是否为模拟器 (针对 Android SDK 模拟器、夜神、雷电、逍遥、网易 MuMu、蓝叠、腾讯手游助手等)
      */
     fun isEmulator(): Boolean {
-        // 1. 检查特征指纹和硬件关键字
-        val isGeneric = Build.FINGERPRINT.startsWith("generic")
-                || Build.FINGERPRINT.startsWith("unknown")
-                || Build.MODEL.contains("google_sdk")
-                || Build.MODEL.contains("Emulator")
-                || Build.MODEL.contains("Android SDK built for x86")
-                || Build.MANUFACTURER.contains("Genymotion")
-                || (Build.BRAND.startsWith("generic") && Build.DEVICE.startsWith("generic"))
-                || "google_sdk" == Build.PRODUCT
-
-        // 2. 检查 CPU/主板硬件特征 (金鱼、Ranchu、VBox、Nox 等)
+        val brand = Build.BRAND.lowercase(Locale.ROOT)
+        val device = Build.DEVICE.lowercase(Locale.ROOT)
+        val fingerprint = Build.FINGERPRINT.lowercase(Locale.ROOT)
         val hardware = Build.HARDWARE.lowercase(Locale.ROOT)
-        val board = Build.BOARD.lowercase(Locale.ROOT)
+        val model = Build.MODEL.lowercase(Locale.ROOT)
+        val manufacturer = Build.MANUFACTURER.lowercase(Locale.ROOT)
         val product = Build.PRODUCT.lowercase(Locale.ROOT)
+        val board = Build.BOARD.lowercase(Locale.ROOT)
 
+        // 1. 检查特征指纹和硬件关键字 (新增了 sdk_gphone, bluestacks, droid4x 等)
+        val isGeneric = fingerprint.startsWith("generic")
+                || fingerprint.startsWith("unknown")
+                || model.contains("google_sdk")
+                || model.contains("emulator")
+                || model.contains("android sdk built for x86")
+                || manufacturer.contains("genymotion")
+                || (brand.startsWith("generic") && device.startsWith("generic"))
+                || "google_sdk" == product
+                || model.contains("droid4x")
+                || product.contains("sdk_gphone") // 新版 Android Studio 官方模拟器
+
+        // 2. 检查 CPU/主板/产品特征 (新增了雷电、MuMu、逍遥、蓝叠等国内主流模拟器关键字)
         val isHardwareEmu = hardware.contains("goldfish")
                 || hardware.contains("ranchu")
                 || hardware.contains("vbox86")
-                || board.contains("nox")
                 || hardware.contains("nox")
+                || hardware.contains("ttvm")
+                || board.contains("nox")
+                || board.contains("vbox86")
                 || product.contains("nox")
                 || product.contains("vbox86p")
                 || product.contains("sdk_x86")
+                || product.contains("sdk_gphone")
+                || product.contains("dnplayer")   // 雷电模拟器
+                || product.contains("ldplayer")   // 雷电模拟器
+                || product.contains("mumu")       // 网易 MuMu
+                || product.contains("nemu")       // 网易 MuMu
+                || product.contains("microvirt")  // 逍遥模拟器
+                || product.contains("memu")       // 逍遥模拟器
+                || product.contains("bluestacks") // 蓝叠模拟器
+                || brand.contains("bluestacks")
 
-        // 3. 检查模拟器特有的驱动文件/管道文件
+        if (isGeneric || isHardwareEmu) return true
+
+        // 3. 检查 /proc/cpuinfo (核心补充：利用 PC 端 CPU 信息的特征检测)
+        val cpuInfo = getCpuInfo()
+        if (cpuInfo.contains("intel") ||
+            cpuInfo.contains("amd") ||
+            cpuInfo.contains("qemu") ||
+            cpuInfo.contains("goldfish") ||
+            cpuInfo.contains("ranchu") ||
+            cpuInfo.contains("hypervisor") ||
+            cpuInfo.contains("vbox")
+        ) {
+            // 排除含有移动端 SoC 厂商字样的真机，防止误判某些特殊芯片
+            val isArmArmSoC = cpuInfo.contains("qualcomm") ||
+                    cpuInfo.contains("exynos") ||
+                    cpuInfo.contains("kirin") ||
+                    cpuInfo.contains("mediatek")
+            if (!isArmArmSoC) return true
+        }
+
+        // 4. 检查架构 ABI (如果全是 x86/x86_64 且无任何 arm 架构，极大可能是 PC 模拟器)
+        val abis = Build.SUPPORTED_ABIS.joinToString(",").lowercase(Locale.ROOT)
+        if (abis.contains("x86") && !abis.contains("arm")) {
+            return true
+        }
+
+        // 5. 检查模拟器特有的驱动/节点/文件 (补充了完整 QEMU 节点及各大模拟器文件)
         val emulatorFiles = arrayOf(
             "/dev/socket/qemud",
             "/dev/qemu_pipe",
+            "/dev/qemu_trace",
+            "/sys/qemu_trace",
             "/system/bin/qemu-props",
+            "/system/lib/libc_malloc_debug_qemu.so",
+            "/system/lib64/libc_malloc_debug_qemu.so",
+            "/dev/vboxguest",
+            "/dev/vboxuser",
             "/fstab.nox",
             "/init.nox.rc",
+            "/ueventd.nox.rc",
+            "/fstab.mumu",
             "/system/app/LDPlayer",
-            "/dev/vboxguest"
+            "/system/bin/droid4x",
+            "/fstab.andy"
         )
-        val hasEmuFiles = emulatorFiles.any { File(it).exists() }
+        if (emulatorFiles.any { File(it).exists() }) {
+            return true
+        }
 
-        return isGeneric || isHardwareEmu || hasEmuFiles
+        return false
+    }
+
+    /**
+     * 读取 /proc/cpuinfo 内容
+     */
+    private fun getCpuInfo(): String {
+        return try {
+            val process = ProcessBuilder("/system/bin/cat", "/proc/cpuinfo").start()
+            val reader = BufferedReader(InputStreamReader(process.inputStream))
+            val sb = StringBuilder()
+            reader.useLines { lines ->
+                lines.forEach { sb.append(it) }
+            }
+            sb.toString().lowercase(Locale.ROOT)
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     /**

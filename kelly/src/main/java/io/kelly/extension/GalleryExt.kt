@@ -12,16 +12,18 @@ import java.io.FileNotFoundException
 import java.io.IOException
 import java.io.InputStream
 
+
 fun InputStream.saveToGallery(
     roomUri: Uri,
     path: String,
+    child: String?,
     displayName: String,
     mimeType: String,
 ) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        saveToGalleryAboveQ(roomUri, path, displayName, mimeType)
+        saveToGalleryAboveQ(roomUri, path, child, displayName, mimeType)
     } else {
-        saveToGalleryBelowQ(path, displayName, mimeType)
+        saveToGalleryBelowQ(path, child, displayName)
     }
 }
 
@@ -29,13 +31,19 @@ fun InputStream.saveToGallery(
 private fun InputStream.saveToGalleryAboveQ(
     roomUri: Uri,
     path: String,
+    child: String?,
     displayName: String,
     mimeType: String,
 ) {
+    val path = if (child.isNullOrEmpty()) {
+        path
+    } else {
+        "${path}${File.separator}${child}"
+    }
     val uri = roomUri.insert {
         put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
         put(MediaStore.MediaColumns.MIME_TYPE, mimeType)
-        put(MediaStore.MediaColumns.RELATIVE_PATH, "${path}${File.separator}${appLabel}")
+        put(MediaStore.MediaColumns.RELATIVE_PATH, path)
     } ?: throw IOException("Failed to insert media row to MediaStore")
 
     try {
@@ -55,13 +63,17 @@ private fun InputStream.saveToGalleryAboveQ(
 
 private fun InputStream.saveToGalleryBelowQ(
     path: String,
+    child: String?,
     displayName: String,
-    mimeType: String,
 ) {
-    val picturesDir = File(
-        Environment.getExternalStoragePublicDirectory(path),
-        appLabel
-    )
+    val picturesDir = if (child.isNullOrEmpty()) {
+        Environment.getExternalStoragePublicDirectory(path)
+    } else {
+        File(
+            Environment.getExternalStoragePublicDirectory(path),
+            child
+        )
+    }
     if (!picturesDir.exists() && !picturesDir.mkdirs()) {
         throw FileNotFoundException("Failed to create gallery directory: ${picturesDir.absolutePath}")
     }
@@ -70,9 +82,17 @@ private fun InputStream.saveToGalleryBelowQ(
     MediaScannerConnection.scanFile(
         KellyInternal.context,
         arrayOf(destFile.absolutePath),
-        arrayOf(mimeType),
+        null,
         null
     )
+    try {
+        val mediaScanIntent = android.content.Intent(android.content.Intent.ACTION_MEDIA_SCANNER_SCAN_FILE).apply {
+            data = Uri.fromFile(destFile)
+        }
+        KellyInternal.context.sendBroadcast(mediaScanIntent)
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
 }
 
 private fun File.getUniqueFile(displayName: String): File {

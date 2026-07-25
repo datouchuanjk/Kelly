@@ -3,13 +3,10 @@ package io.kelly.source
 import android.graphics.Bitmap
 import android.os.Environment
 import android.provider.MediaStore
-import android.util.Log
+import io.kelly.extension.appLabel
 import io.kelly.extension.writeTo
 import io.kelly.extension.saveToGallery
 import io.kelly.extension.scaleTo
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.onStart
 import java.io.File
 
 fun <T> Source<T>.isImage(): Boolean {
@@ -65,6 +62,7 @@ fun <T> Source<T>.saveToGallery() {
             isAudio -> Environment.DIRECTORY_MUSIC
             else -> Environment.DIRECTORY_PICTURES
         },
+        child = appLabel,
         displayName = "${System.nanoTime()}.${extension}",
         mimeType = mimeType
     )

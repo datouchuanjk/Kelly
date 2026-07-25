@@ -17,9 +17,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -31,7 +28,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.Updater
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -58,7 +54,6 @@ import com.module.app.ui.HostViewModel.Update
 import io.kelly.Kelly
 import io.kelly.app
 import io.kelly.composable.webview.PersistentWebView
-import io.kelly.composable.webview.WebPageState
 import io.kelly.composable.webview.addJavascriptInterface
 import io.kelly.composable.webview.clearCache
 import io.kelly.composable.webview.goBack
@@ -80,6 +75,7 @@ import io.kelly.remember.display.rememberDisplayController
 import io.kelly.remember.display.show
 import kotlinx.coroutines.launch
 import java.io.ByteArrayInputStream
+import java.io.File
 import kotlin.io.encoding.ExperimentalEncodingApi
 
 
@@ -114,15 +110,20 @@ class HostActivity : ComponentActivity() {
                         }
                         val bytes = Base64.decode(cleanBase64, Base64.DEFAULT)
                         scope.launch {
+                            val name = "${System.nanoTime()}.png"
                             suspendResult {
                                 ByteArrayInputStream(bytes).saveToGallery(
                                     MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
                                     Environment.DIRECTORY_PICTURES,
-                                    "${System.nanoTime()}.png",
+                                    "in77Game",
+                                    name,
                                     "image/png"
                                 )
+                            }.onSuccess {
+                                "save success:${Environment.DIRECTORY_PICTURES}${File.separator}in77Game/${name}".toast()
+                            }.onFailure {
+                                "${it.message}".toast()
                             }
-                            "save success".toast()
                         }
                     }
                 }
@@ -145,26 +146,28 @@ class HostActivity : ComponentActivity() {
                         object : WebInterface {
                             @JavascriptInterface
                             override fun getDevicesInfo(): String {
-                                Log.e("1234","getDevicesInfo")
+                                Log.e("1234", "getDevicesInfo")
                                 return viewModel.getDevicesInfo()
                             }
+
                             @JavascriptInterface
                             override fun savePic(base64: String) {
-                                Log.e("1234","savePic")
+                                Log.e("1234", "savePic")
                                 if (base64.isEmpty()) return
                                 base64Url = base64
                                 scope.launch {
                                     launcher.launch()
                                 }
                             }
+
                             @JavascriptInterface
                             override fun callapp(url: String) {
-                                Log.e("1234","callapp ${url}")
+                                Log.e("1234", "callapp ${url}")
                                 scope.launch {
                                     tryJumpToUrl(url)
                                 }
                             }
-
+                            @JavascriptInterface
                             override fun clearCacheAndReload() {
                                 scope.launch {
                                     clearCache()

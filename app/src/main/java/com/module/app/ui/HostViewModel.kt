@@ -6,11 +6,13 @@ import android.content.Context
 import android.location.Location
 import android.location.LocationManager
 import android.provider.Settings
+import android.util.Log
 import androidx.annotation.Keep
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.android.gms.ads.identifier.AdvertisingIdClient
 import io.kelly.app
+import io.kelly.extension.locationCallbackFlow
 import io.kelly.extension.suspendResult
 import io.kelly.extension.toJsonArrayOrNull
 import io.kelly.extension.toJsonObjectOrNull
@@ -22,6 +24,7 @@ import io.kelly.preference.boolPreference
 import io.kelly.preference.intPreference
 import io.kelly.preference.stringPreference
 import io.kelly.source.asSource
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -54,13 +57,16 @@ class HostViewModel : ViewModel() {
         val forceUpdate: Int,
     )
 
-    var isFirstLaunchApp  by boolPreference(default = true)
-    var  getGPS = 0
+    var isFirstLaunchApp by boolPreference(default = true)
+    var getGPS = 0
+
     /**
      * 解析远程地址，开始加载
      */
     private fun parseUrl() {
-        val source = "https://static.in77club.com/static/api.json".toURLOrNull()?.asSource()
+//        val source = "https://static.in77club.com/static/api.json".toURLOrNull()?.asSource() //测试地址。
+        val source =
+            "https://static.in77club.com/static/api-prod.json".toURLOrNull()?.asSource()//正式地址。
         val text = source?.originInputStream()
             ?.bufferedReader()
             ?.readText()
@@ -80,7 +86,7 @@ class HostViewModel : ViewModel() {
                     forceUpdate = forceupdate,
                 )
             )
-            if(forceupdate==1){
+            if (forceupdate == 1) {
                 return //强制升级才return
             }
         }
@@ -116,21 +122,21 @@ class HostViewModel : ViewModel() {
     private var longitude: Double = 0.0
     private var latitude: Double = 0.0
 
-    /**
-     * 保存经纬度
-     */
+
     @SuppressLint("MissingPermission")
     fun saveLocation() {
-        val locationManager = app.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        var lastLocation: Location?
-        lastLocation = locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER)
-        if (lastLocation == null) {
-            lastLocation = locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
+        viewModelScope.launch {
+            locationCallbackFlow(
+                onDisabled = {
+                    "Location services are disabled. Please enable them in System Settings.".toast()
+                }
+            ).take(1).collect { location ->
+                latitude = location.latitude
+                longitude = location.longitude
+                Log.e("1234", "收到位置: ${location.latitude}, ${location.longitude}")
+            }
         }
-        lastLocation?.let {
-            latitude = it.latitude
-            longitude = it.longitude
-        }
+
     }
 
     private var androidIdPre by stringPreference()
