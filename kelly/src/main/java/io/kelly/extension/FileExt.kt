@@ -5,6 +5,7 @@ import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
 import android.net.Uri
 import android.os.Build
+import android.util.Base64
 import android.webkit.MimeTypeMap
 import androidx.annotation.RequiresApi
 import androidx.core.content.FileProvider
@@ -123,4 +124,13 @@ private fun File.scaleToBitmapBelowP(
         approximateBitmap.recycle()
     }
     return exactBitmap
+}
+
+fun File.toBase64(): String {
+    val bytes = readBytes()
+    return Base64.encodeToString(bytes, Base64.NO_WRAP)
+}
+
+fun File.toDataBase64(): String {
+    return "data:$mimeType;base64,${toBase64()}"
 }

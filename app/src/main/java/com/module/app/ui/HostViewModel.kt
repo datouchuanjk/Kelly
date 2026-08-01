@@ -65,8 +65,7 @@ class HostViewModel : ViewModel() {
      */
     private fun parseUrl() {
 //        val source = "https://static.in77club.com/static/api.json".toURLOrNull()?.asSource() //测试地址。
-        val source =
-            "https://static.in77club.com/static/api-prod.json".toURLOrNull()?.asSource()//正式地址。
+        val source = "https://static.in77club.com/static/api-prod.json".toURLOrNull()?.asSource()//正式地址。
         val text = source?.originInputStream()
             ?.bufferedReader()
             ?.readText()

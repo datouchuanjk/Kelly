@@ -10,8 +10,8 @@ android {
         applicationId = "com.in77club.official"
         targetSdk = 35
         minSdk = 26
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 2
+        versionName = "1.0.1"
         ndk {
             abiFilters.addAll(listOf("armeabi-v7a", "x86", "arm64-v8a", "x86_64"))
         }

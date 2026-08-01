@@ -80,9 +80,6 @@ object DeviceInfoUtils {
         }
     }
 
-    /**
-     * 综合检测是否为模拟器 (针对 Android SDK 模拟器、夜神、雷电、逍遥、网易 MuMu、蓝叠、腾讯手游助手等)
-     */
     fun isEmulator(): Boolean {
         val brand = Build.BRAND.lowercase(Locale.ROOT)
         val device = Build.DEVICE.lowercase(Locale.ROOT)
@@ -93,7 +90,6 @@ object DeviceInfoUtils {
         val product = Build.PRODUCT.lowercase(Locale.ROOT)
         val board = Build.BOARD.lowercase(Locale.ROOT)
 
-        // 1. 检查特征指纹和硬件关键字 (新增了 sdk_gphone, bluestacks, droid4x 等)
         val isGeneric = fingerprint.startsWith("generic")
                 || fingerprint.startsWith("unknown")
                 || model.contains("google_sdk")

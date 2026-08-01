@@ -10,7 +10,6 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Build
 import android.os.Looper
-import android.util.Log
 import androidx.annotation.RequiresPermission
 import androidx.core.content.getSystemService
 import io.kelly.KellyInternal
@@ -22,7 +21,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.onEach
 
-val LocationManager.isLocationEnabledCompat: Boolean
+private val LocationManager.isLocationEnabledCompat: Boolean
     get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         isLocationEnabled
     } else {
@@ -30,13 +29,12 @@ val LocationManager.isLocationEnabledCompat: Boolean
                 isProviderEnabled(LocationManager.NETWORK_PROVIDER)
     }
 
-val LocationManager.cachedLocation: Location?
+private val LocationManager.cachedLocation: Location?
     @RequiresPermission(anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
-    get() = getLastKnownLocation(LocationManager.GPS_PROVIDER) ?: getLastKnownLocation(
-        LocationManager.NETWORK_PROVIDER
-    )
+    get() = getLastKnownLocation(LocationManager.GPS_PROVIDER)
+        ?: getLastKnownLocation(LocationManager.NETWORK_PROVIDER)
 
-val locationEnabledCallbackFlow: Flow<Boolean>
+private val locationEnabledCallbackFlow: Flow<Boolean>
     get() = callbackFlow {
         val context = KellyInternal.context
         val service = context.getSystemService<LocationManager>()

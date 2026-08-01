@@ -2,16 +2,21 @@ package com.module.app.ui
 
 
 import android.Manifest
+import android.net.Uri
 import android.os.*
 import android.provider.MediaStore
 import android.util.Base64
 import android.util.Log
 import android.webkit.JavascriptInterface
+import android.webkit.ValueCallback
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.ActivityResultCallback
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.launch
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
@@ -56,6 +61,7 @@ import io.kelly.app
 import io.kelly.composable.webview.PersistentWebView
 import io.kelly.composable.webview.addJavascriptInterface
 import io.kelly.composable.webview.clearCache
+import io.kelly.composable.webview.evaluateJavascript
 import io.kelly.composable.webview.goBack
 import io.kelly.composable.webview.load
 import io.kelly.composable.webview.reload
@@ -63,12 +69,16 @@ import io.kelly.composable.webview.rememberWebViewState
 import io.kelly.extension.FlowCollectEffect
 import io.kelly.extension.saveToGallery
 import io.kelly.extension.suspendResult
+import io.kelly.extension.toDataBase64
 import io.kelly.extension.toast
 import io.kelly.extension.tryJumpToUrl
 import io.kelly.extension.versionName
 import io.kelly.launcher.PermissionState
+import io.kelly.launcher.launchImageOnly
 import io.kelly.launcher.rememberLauncherForExternalStorage
+import io.kelly.launcher.rememberLauncherForPickVisualMedia
 import io.kelly.launcher.rememberLauncherForRequestPermission
+import io.kelly.launcher.rememberLauncherForTakePicture
 import io.kelly.remember.display.DisplayController
 import io.kelly.remember.display.content
 import io.kelly.remember.display.rememberDisplayController
@@ -129,53 +139,105 @@ class HostActivity : ComponentActivity() {
                 }
             }
             Scaffold { innerPadding ->
+                var mimeType by remember { mutableStateOf("") }
+                var callback by remember { mutableStateOf<ValueCallback<Array<Uri>>?>(null) }
+                val imagePick = rememberLauncherForPickVisualMedia(maxItems = 1) {
+                    if (it.isEmpty()) {
+                        return@rememberLauncherForPickVisualMedia
+                    }
+                    callback?.onReceiveValue(it.toTypedArray())
+                    callback = null
+                }
+                val filePick =
+                    rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+                        if (it == null) {
+                            return@rememberLauncherForActivityResult
+                        }
+                        callback?.onReceiveValue(arrayOf(it))
+                        callback = null
+                    }
+                val launcher = rememberLauncherForExternalStorage(
+                    useSaf = true,
+                    requireReadImages = true
+                ) {
+                    if (it) {
+                        if (mimeType.startsWith("image/")) {
+                            imagePick.launchImageOnly()
+                        } else {
+                            filePick.launch(mimeType)
+                        }
+                    } else {
+                        callback = null
+                    }
+                }
+
                 var isLoading by remember { mutableStateOf(true) }
                 val localActivity = LocalActivity.current
                 val state = rememberWebViewState("key")
-                    .setOnPermissionRequest {
-                        it.grant(it.resources)
-                    }.setOnLoadFailed {
-                        viewModel.getNextUrl()
-                    }.setOnLoadSuccess {
-                        isLoadSuccess = true
-                        if (viewModel.isFirstLaunchApp || viewModel.getGPS == 1) {
-                            viewModel.isFirstLaunchApp = false
-                            controller.show()
+                val takePic = rememberLauncherForTakePicture {
+                    it ?: return@rememberLauncherForTakePicture
+                    state.evaluateJavascript("takePicResult", it.toDataBase64())
+                }
+                state.setOnImageChooser {
+                    mimeType = it
+                    callback = this
+                    launcher.launch()
+                }.setOnFileChooser {
+                    mimeType = it
+                    callback = this
+                    launcher.launch()
+                }.setOnPermissionRequest {
+                    it.grant(it.resources)
+                }.setOnLoadFailed {
+                    viewModel.getNextUrl()
+                }.setOnLoadSuccess {
+                    isLoadSuccess = true
+                    if (viewModel.isFirstLaunchApp || viewModel.getGPS == 1) {
+                        viewModel.isFirstLaunchApp = false
+                        controller.show()
+                    }
+                }.addJavascriptInterface("Android") {
+                    object : WebInterface {
+                        @JavascriptInterface
+                        override fun getDevicesInfo(): String {
+                            Log.e("1234", "getDevicesInfo")
+                            return viewModel.getDevicesInfo()
                         }
-                    }.addJavascriptInterface("Android") {
-                        object : WebInterface {
-                            @JavascriptInterface
-                            override fun getDevicesInfo(): String {
-                                Log.e("1234", "getDevicesInfo")
-                                return viewModel.getDevicesInfo()
-                            }
 
-                            @JavascriptInterface
-                            override fun savePic(base64: String) {
-                                Log.e("1234", "savePic")
-                                if (base64.isEmpty()) return
-                                base64Url = base64
-                                scope.launch {
-                                    launcher.launch()
-                                }
+                        @JavascriptInterface
+                        override fun savePic(base64: String) {
+                            Log.e("1234", "savePic")
+                            if (base64.isEmpty()) return
+                            base64Url = base64
+                            scope.launch {
+                                launcher.launch()
                             }
+                        }
 
-                            @JavascriptInterface
-                            override fun callapp(url: String) {
-                                Log.e("1234", "callapp ${url}")
-                                scope.launch {
-                                    tryJumpToUrl(url)
-                                }
+                        @JavascriptInterface
+                        override fun callapp(url: String) {
+                            Log.e("1234", "callapp ${url}")
+                            scope.launch {
+                                tryJumpToUrl(url)
                             }
-                            @JavascriptInterface
-                            override fun clearCacheAndReload() {
-                                scope.launch {
-                                    clearCache()
-                                    reload()
-                                }
+                        }
+
+                        @JavascriptInterface
+                        override fun clearCacheAndReload() {
+                            scope.launch {
+                                clearCache()
+                                reload()
+                            }
+                        }
+
+                        @JavascriptInterface
+                        override fun takePic() {
+                            scope.launch {
+                                takePic.launch()
                             }
                         }
                     }
+                }
                 PersistentWebView(
                     state = state,
                     modifier = Modifier

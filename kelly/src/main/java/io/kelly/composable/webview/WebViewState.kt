@@ -57,7 +57,8 @@ class WebViewState internal constructor(internal val webViewProvider: () -> WebV
 
     internal var onPermissionRequest: ((PermissionRequest) -> Unit)? = null
 
-    internal var onImageChooser: ((ValueCallback<Array<Uri>>) -> Unit)? = null
+    internal var onImageChooser: (ValueCallback<Array<Uri>>.(String) -> Unit)? = null
+    internal var onFileChooser: (ValueCallback<Array<Uri>>.(String) -> Unit)? = null
 
     internal var onLoadFailed: ((Int) -> Unit)? = null
 
@@ -135,12 +136,23 @@ class WebViewState internal constructor(internal val webViewProvider: () -> WebV
     }
 
     @Composable
-    fun setOnImageChooser(block: (ValueCallback<Array<Uri>>) -> Unit) = apply {
+    fun setOnImageChooser(block: ValueCallback<Array<Uri>>.(String) -> Unit) = apply {
         val currentBlock by rememberUpdatedState(block)
         DisposableEffect(this) {
             onImageChooser = { currentBlock(it) }
             onDispose {
                 onImageChooser = null
+            }
+        }
+    }
+
+    @Composable
+    fun setOnFileChooser(block: ValueCallback<Array<Uri>>.(String) -> Unit) = apply {
+        val currentBlock by rememberUpdatedState(block)
+        DisposableEffect(this) {
+            onFileChooser = { currentBlock(it) }
+            onDispose {
+                onFileChooser = null
             }
         }
     }
@@ -269,8 +281,11 @@ class WebViewState internal constructor(internal val webViewProvider: () -> WebV
                     return super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
                 }
                 val acceptType = fileChooserParams.acceptTypes[0]
-                if (acceptType.startsWith("image/")) {
-                    onImageChooser?.invoke(filePathCallback)
+                if (acceptType.startsWith("image/")&&onImageChooser!=null) {
+                    onImageChooser?.invoke(filePathCallback,acceptType)
+                    return true
+                }else if(onFileChooser!=null){
+                    onFileChooser?.invoke(filePathCallback,acceptType)
                     return true
                 }
                 return super.onShowFileChooser(webView, filePathCallback, fileChooserParams)

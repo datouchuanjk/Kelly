@@ -17,4 +17,7 @@ interface WebInterface {
 
     @JavascriptInterface
     fun clearCacheAndReload()
+
+    @JavascriptInterface
+    fun takePic()
 }
