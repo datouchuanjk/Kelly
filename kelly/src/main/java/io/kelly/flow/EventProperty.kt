@@ -21,8 +21,8 @@ interface EventProperty<T> : ReadOnlyProperty<Any?, SharedFlow<T>> {
 }
 
 internal class EventPropertyImpl<T>(
-    extraBufferCapacity: Int = 0,
-    onBufferOverflow: BufferOverflow = BufferOverflow.SUSPEND
+    extraBufferCapacity: Int = 64,
+    onBufferOverflow: BufferOverflow = BufferOverflow.DROP_OLDEST
 ) : EventProperty<T> {
 
     private val _flow = MutableSharedFlow<T>(

@@ -24,12 +24,16 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
-fun rememberWebViewState(key: String): WebViewState {
+fun rememberWebViewState(
+    key: String,
+    initialUrl: String? = null
+): WebViewState {
     if (key.isEmpty()) {
         throw NullPointerException("key is empty")
     }
     val webViewModel = viewModel<WebManager>(key = key)
     webViewModel.state.key = key
+    webViewModel.state.initialUrl = initialUrl
     return webViewModel.state
 }
 
@@ -52,6 +56,7 @@ class WebViewState internal constructor(internal val webViewProvider: () -> WebV
         internal set
 
     internal lateinit var key: String
+    internal var initialUrl: String? = null
 
     internal var onUrlInterceptor: ((String) -> Boolean)? = null
 
@@ -70,12 +75,12 @@ class WebViewState internal constructor(internal val webViewProvider: () -> WebV
     internal val jsInterfaces = mutableMapOf<String, Any>()
 
     @SuppressLint("JavascriptInterface")
-    internal  fun addJsInterfaceInternal(name: String, obj: Any) {
+    internal fun addJsInterfaceInternal(name: String, obj: Any) {
         jsInterfaces[name] = obj
         webViewProvider()?.addJavascriptInterface(obj, name)
     }
 
-    internal   fun removeJsInterfaceInternal(name: String) {
+    internal fun removeJsInterfaceInternal(name: String) {
         jsInterfaces.remove(name)
         webViewProvider()?.removeJavascriptInterface(name)
     }
@@ -281,11 +286,11 @@ class WebViewState internal constructor(internal val webViewProvider: () -> WebV
                     return super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
                 }
                 val acceptType = fileChooserParams.acceptTypes[0]
-                if (acceptType.startsWith("image/")&&onImageChooser!=null) {
-                    onImageChooser?.invoke(filePathCallback,acceptType)
+                if (acceptType.startsWith("image/") && onImageChooser != null) {
+                    onImageChooser?.invoke(filePathCallback, acceptType)
                     return true
-                }else if(onFileChooser!=null){
-                    onFileChooser?.invoke(filePathCallback,acceptType)
+                } else if (onFileChooser != null) {
+                    onFileChooser?.invoke(filePathCallback, acceptType)
                     return true
                 }
                 return super.onShowFileChooser(webView, filePathCallback, fileChooserParams)

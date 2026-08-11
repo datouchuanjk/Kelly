@@ -4,8 +4,6 @@ import android.app.Activity
 import android.app.Application
 import android.content.Context
 import android.os.Bundle
-import io.kelly.extension.isAppInBackground
-import io.kelly.extension.isAppInForeground
 import java.lang.ref.WeakReference
 
 object Kelly {
@@ -48,17 +46,11 @@ object Kelly {
 internal object KellyInternal {
     lateinit var context: Application
     var topActivity: WeakReference<Activity>? = null
-    internal val activities = mutableListOf<WeakReference<Activity>>()
+    val activities = mutableListOf<WeakReference<Activity>>()
     var isDebug: Boolean = false
 }
 
-val isProcessOnly
-    get() = KellyInternal.topActivity?.get() == null
-            && KellyInternal.activities.isEmpty()
-            && isAppInBackground
-
-val app get() = KellyInternal.context
-
+val isProcessOnly get() =topActivityOrNull== null
+        && activities.isEmpty()
 val topActivityOrNull get() = KellyInternal.topActivity?.get()
-
-val activities get() = KellyInternal.activities.map { it.get() }
+val activities get() = KellyInternal.activities.mapNotNull { it.get() }

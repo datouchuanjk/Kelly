@@ -24,7 +24,7 @@ interface EffectProperty<T> : ReadOnlyProperty<Any?, Flow<T>> {
 
 internal class EffectPropertyImpl<T>(
     capacity: Int = Channel.BUFFERED,
-    onBufferOverflow: BufferOverflow = BufferOverflow.SUSPEND,
+    onBufferOverflow: BufferOverflow = BufferOverflow.DROP_OLDEST,
     onUndeliveredElement: ((T) -> Unit)? = null
 ) : EffectProperty<T> {
     private val channel = Channel(

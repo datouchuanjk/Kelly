@@ -12,10 +12,10 @@ internal class WebManager : ViewModel() {
     private var contextWrapper: MutableContextWrapper? = null
     private var webView: WebView? = null
     internal val state = WebViewState { webView }
+
     @SuppressLint("JavascriptInterface")
     fun requireWebView(
         activityContext: Context,
-        initialUrl: String?
     ): WebView {
         if (webView == null) {
             val wrapper = MutableContextWrapper(activityContext).apply { contextWrapper = this }
@@ -27,8 +27,8 @@ internal class WebManager : ViewModel() {
                 state.jsInterfaces.forEach { (name, obj) ->
                     addJavascriptInterface(obj, name)
                 }
-                initialUrl?.let {
-                    loadUrl(initialUrl)
+                state.initialUrl?.let {
+                    loadUrl(it)
                 }
             }
         } else {
