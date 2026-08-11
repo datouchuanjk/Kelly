@@ -22,7 +22,7 @@ fun <Key, Value> buildPaging(
     context: CoroutineContext = Dispatchers.IO,
     pagingStart: PagingStart = PagingStart.START,
     initialKey: Key? = null,
-    keyProvider: ((Value) -> Any?)? = null,
+    keyProvider: ((Value) -> Any)? = null,
     config: PagingConfig = PagingConfig(),
     distinctStrategy: DistinctStrategy = DistinctStrategy.DropOldest,
     load: suspend PagingScope.(LoadParams<Key>) -> LoadResult<Key, Value>
@@ -37,19 +37,6 @@ fun <Key, Value> buildPaging(
         config = config,
         load = load
     )
-}
-
-fun <Value> buildEmptyPaging(
-    scope: CoroutineScope,
-    initialList: List<Value> = emptyList(),
-    keyProvider: ((Value) -> Any?)? = null,
-    distinctStrategy: DistinctStrategy = DistinctStrategy.DropOldest,
-) = buildPaging(
-    scope = scope,
-    keyProvider = keyProvider,
-    distinctStrategy = distinctStrategy,
-) {
-    LoadResult(null, initialList)
 }
 
 

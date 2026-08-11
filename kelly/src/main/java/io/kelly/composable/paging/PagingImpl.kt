@@ -17,32 +17,14 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.coroutines.CoroutineContext
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 
-/**
- * 我来说一下我设计的几个点
- * 第一个 为什么 修改是一个 list job
- * 因为我可能有 5 个修改，第一个正在做
- * 如果这个时候刷新？
- * 那么我是不是 5个都要取消
- * 因为里面有锁 等于说 其实 5 个 job 都创建了，只是后面 4 个在等第一个完成对不对？
- *
- * 其次为什么我的 state 里面要加 flow 其实这个 flow 是个 channel
- * 为什么我要这么设计，
- * 如果是无数据的情况下 可以看我的 pagingBox 我会显示空界面！
- * 但是在我有数据的情况下？ 你错了 去显示错误界面吗？ 不 你应该 toast
- * 那么这个时候 toast 作为事件 如果你通过 state==error 这个状态去处理 那么只要遇到重建 那么就废了，所以这里我使用事件！
- * 而且是必达事件，channel
- *
- * 所以 现在给我一份完整代码。就这个impl类，主要是时间那块，的修改 其他的应该没什么
- */
 internal class PagingImpl<Key, Value>(
     val scope: CoroutineScope,
     val context: CoroutineContext,
     val pagingStart: PagingStart = PagingStart.START,
     val initialKey: Key? = null,
-    val keyProvider: ((Value) -> Any?)? = null,
+    val keyProvider: ((Value) -> Any)? = null,
     val distinctStrategy: DistinctStrategy = DistinctStrategy.DropOldest,
     val config: PagingConfig = PagingConfig(),
     val load: suspend PagingScope.(LoadParams<Key>) -> LoadResult<Key, Value>
@@ -195,8 +177,8 @@ internal class PagingImpl<Key, Value>(
                 return null
             } else {
                 return { index ->
-                    val item = snapshotList[index]
-                    keyProvider(item) ?: index
+                    val item = _list[index]
+                    keyProvider(item)
                 }
             }
         }

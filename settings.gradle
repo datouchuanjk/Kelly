@@ -18,6 +18,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "in77"
+rootProject.name = "MyKelly"
 include ':app'
 include ':kelly'

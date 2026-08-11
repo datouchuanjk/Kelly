@@ -2,6 +2,7 @@ package io.kelly.source
 
 import android.content.ContentResolver
 import android.net.Uri
+import android.util.Base64
 import java.io.File
 import java.io.InputStream
 import androidx.core.net.toUri
@@ -42,6 +43,18 @@ fun Uri.asSource(): Source<*> {
 }
 
 fun File.asSource(): Source<File> = FileSource(this)
+
+fun String.asSource(flags: Int? = null): Source<*> {
+    if (startsWith("http://", true) || startsWith("https://", true)) {
+        return URL(this).asSource()
+    }
+    val actualFlags = flags ?: if (startsWith("data:", true)) {
+        Base64.DEFAULT
+    } else {
+        Base64.NO_WRAP or Base64.URL_SAFE
+    }
+    return Base64Source(this, actualFlags)
+}
 
 
 
