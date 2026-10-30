@@ -14,7 +14,7 @@ interface Paging<Value> {
     val itemKey: ((Int) -> Any)?
     val size: Int
     operator fun get(index: Int): Value
-    fun transform(block: suspend (MutableList<Value>) -> List<Value>)
+    fun update(block: suspend (MutableList<Value>) -> List<Value>)
 }
 
 fun <Key, Value> buildPaging(
@@ -24,7 +24,7 @@ fun <Key, Value> buildPaging(
     initialKey: Key? = null,
     keyProvider: ((Value) -> Any)? = null,
     config: PagingConfig = PagingConfig(),
-    distinctStrategy: DistinctStrategy = DistinctStrategy.DropOldest,
+
     load: suspend PagingScope.(LoadParams<Key>) -> LoadResult<Key, Value>
 ): Paging<Value> {
     return PagingImpl(
@@ -33,7 +33,6 @@ fun <Key, Value> buildPaging(
         pagingStart = pagingStart,
         initialKey = initialKey,
         keyProvider = keyProvider,
-        distinctStrategy = distinctStrategy,
         config = config,
         load = load
     )

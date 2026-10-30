@@ -20,12 +20,11 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.time.TimeSource
 
 internal class PagingImpl<Key, Value>(
-    val scope: CoroutineScope,
+    scope: CoroutineScope,
     val context: CoroutineContext,
-    val pagingStart: PagingStart = PagingStart.START,
+    pagingStart: PagingStart = PagingStart.START,
     val initialKey: Key? = null,
     val keyProvider: ((Value) -> Any)? = null,
-    val distinctStrategy: DistinctStrategy = DistinctStrategy.DropOldest,
     val config: PagingConfig = PagingConfig(),
     val load: suspend PagingScope.(LoadParams<Key>) -> LoadResult<Key, Value>
 ) : Paging<Value>, CoroutineScope by scope {
@@ -34,7 +33,7 @@ internal class PagingImpl<Key, Value>(
     private val _mutex = Mutex()
     private var _refreshJob: Job? = null
     private var _appendJob: Job? = null
-    private var _transformJobs = CopyOnWriteArrayList<Job>()
+    private var _updateJobs = CopyOnWriteArrayList<Job>()
     private val _isRefreshing get() = _refreshJob?.isActive == true
     private val _isLoadingMore get() = _appendJob?.isActive == true
     private var _pagingStart = pagingStart
@@ -43,13 +42,13 @@ internal class PagingImpl<Key, Value>(
     private val _eventFlow by _event
     override var refreshState: LoadState by mutableStateOf(LoadState.Loading)
     override var loadMoreState: LoadState by mutableStateOf(LoadState.NotLoading(false))
-    override val snapshotList: List<Value> by derivedStateOf { _list.toList() }
+    override val snapshotList: List<Value> get() = _list
 
     private fun List<Value>.distinctByStrategy(): List<Value> {
         if (keyProvider == null) {
             return this
         }
-        return when (distinctStrategy) {
+        return when (config.distinctStrategy) {
             DistinctStrategy.DropLatest -> {
                 distinctBy(keyProvider)
             }
@@ -78,7 +77,7 @@ internal class PagingImpl<Key, Value>(
         _pagingStart = PagingStart.START
         if (_isRefreshing) return
         _appendJob?.cancel()
-        _transformJobs.forEach { it.cancel() }
+        _updateJobs.forEach { it.cancel() }
         _refreshJob = launch {
             _mutex.withLock {
                 val startMark = TimeSource.Monotonic.markNow()
@@ -104,7 +103,7 @@ internal class PagingImpl<Key, Value>(
                         _list.clear()
                         _list.addAll(rawData.distinctByStrategy())
                     }
-                } .onFailure {
+                }.onFailure {
                     delayMinimumLoadingTime(startMark)
                     refreshState = LoadState.Error(it, _eventFlow)
                     _event.trySend(it)
@@ -193,7 +192,7 @@ internal class PagingImpl<Key, Value>(
 
     override val size: Int get() = snapshotList.size
 
-    override fun transform(block: suspend (MutableList<Value>) -> List<Value>) {
+    override fun update(block: suspend (MutableList<Value>) -> List<Value>) {
         val job = launch {
             _mutex.withLock {
                 tryResult {
@@ -206,9 +205,9 @@ internal class PagingImpl<Key, Value>(
                 }
             }
         }
-        _transformJobs.add(job)
+        _updateJobs.add(job)
         job.invokeOnCompletion {
-            _transformJobs.remove(job)
+            _updateJobs.remove(job)
         }
     }
 }
